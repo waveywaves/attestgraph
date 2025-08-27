@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Shield, AlertCircle, Info, HelpCircle, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -397,7 +397,45 @@ export default function Home() {
 
 // Security Overview Component
 function SecurityOverview({ data }: { data: GraphPayload }) {
-  const security = assessGraphSecurity(data);
+  const [security, setSecurity] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const assessSecurity = async () => {
+      setLoading(true);
+      try {
+        const assessment = await assessGraphSecurity(data);
+        setSecurity(assessment);
+      } catch (error) {
+        console.error('Failed to assess security:', error);
+        // Fallback to basic assessment without CVE data
+        setSecurity({
+          trustLevel: 'unknown',
+          riskLevel: 'medium',
+          score: 50,
+          issues: [],
+          recommendations: []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    assessSecurity();
+  }, [data]);
+
+  if (loading) {
+    return (
+      <Card className="w-64 border-gray-200">
+        <CardContent className="py-8">
+          <LoadingSpinner size="sm" message="Analyzing security..." />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!security) return null;
+
   const trustBadge = getTrustLevelBadge(security.trustLevel);
 
   return (
@@ -455,6 +493,30 @@ function SecurityOverview({ data }: { data: GraphPayload }) {
             </span>
           </div>
         </div>
+
+        {/* Vulnerability Summary */}
+        {security.vulnerabilityAssessment && security.vulnerabilityAssessment.totalVulnerabilities > 0 && (
+          <div className="pt-2 border-t border-gray-200">
+            <div className="text-xs text-gray-600 mb-1">Vulnerabilities Found</div>
+            <div className="flex items-center gap-1 text-xs">
+              {security.vulnerabilityAssessment.criticalCount > 0 && (
+                <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">
+                  {security.vulnerabilityAssessment.criticalCount} Critical
+                </span>
+              )}
+              {security.vulnerabilityAssessment.highCount > 0 && (
+                <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
+                  {security.vulnerabilityAssessment.highCount} High
+                </span>
+              )}
+              {security.vulnerabilityAssessment.mediumCount > 0 && (
+                <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-medium">
+                  {security.vulnerabilityAssessment.mediumCount} Medium
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-1 text-center pt-2 border-t border-gray-200">

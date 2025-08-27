@@ -326,8 +326,17 @@ function determineRiskLevel(
 /**
  * Generate actionable recommendations
  */
-function generateRecommendations(issues: SecurityIssue[], data: GraphPayload): string[] {
+function generateRecommendations(
+  issues: SecurityIssue[], 
+  data: GraphPayload, 
+  vulnAssessment?: VulnerabilityAssessment
+): string[] {
   const recommendations: string[] = [];
+
+  // Vulnerability-specific recommendations (highest priority)
+  if (vulnAssessment && vulnAssessment.recommendedActions.length > 0) {
+    recommendations.push(...vulnAssessment.recommendedActions);
+  }
 
   // Missing attestation recommendations
   if (!data.nodes.some(n => n.type === 'PROVENANCE')) {
@@ -345,7 +354,7 @@ function generateRecommendations(issues: SecurityIssue[], data: GraphPayload): s
     recommendations.push('Sign all software artifacts and verify signatures before deployment.');
   }
 
-  if (issueTypes.has('vulnerability')) {
+  if (issueTypes.has('vulnerability') && !vulnAssessment) {
     recommendations.push('Scan for vulnerabilities regularly and prioritize fixing critical/high severity issues.');
   }
 
@@ -353,12 +362,19 @@ function generateRecommendations(issues: SecurityIssue[], data: GraphPayload): s
     recommendations.push('Keep dependencies updated and monitor for security updates.');
   }
 
+  // Security best practices
+  if (vulnAssessment && vulnAssessment.totalVulnerabilities > 0) {
+    recommendations.push('Implement automated vulnerability scanning in your CI/CD pipeline.');
+    recommendations.push('Set up security alerts for new vulnerabilities in your dependencies.');
+  }
+
   // Default recommendations
   if (recommendations.length === 0) {
     recommendations.push('Continue following security best practices and monitor for new vulnerabilities.');
+    recommendations.push('Consider implementing additional security measures like dependency pinning.');
   }
 
-  return recommendations;
+  return recommendations.slice(0, 8); // Limit to top 8 recommendations
 }
 
 /**

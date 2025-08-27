@@ -1,13 +1,15 @@
 "use client"
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Info, Shield, AlertTriangle, ExternalLink } from 'lucide-react';
 import { ClNode, GraphPayload } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import VulnerabilityDetails from '@/components/VulnerabilityDetails';
 import { getConceptByNodeType } from '@/lib/security-knowledge';
-import { assessNodeSecurity, getTrustLevelBadge, getRiskLevelBadge } from '@/lib/risk-assessment';
+import { assessNodeSecurity, getTrustLevelBadge, getRiskLevelBadge, assessGraphSecurity } from '@/lib/risk-assessment';
 
 interface DetailsDrawerProps {
   node: ClNode | null;
@@ -17,12 +19,50 @@ interface DetailsDrawerProps {
 }
 
 export default function DetailsDrawer({ node, isOpen, onClose, graphData }: DetailsDrawerProps) {
+  const [security, setSecurity] = useState<any>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
+
+  React.useEffect(() => {
+    const assessSecurity = async () => {
+      if (!node || !graphData) {
+        setSecurity(null);
+        return;
+      }
+
+      setSecurityLoading(true);
+      try {
+        // Get basic node security assessment
+        const nodeAssessment = assessNodeSecurity(node, graphData);
+        
+        // For SBOM nodes, also get vulnerability details
+        if (node.type === 'SBOM_JSON' && node.meta) {
+          // Get full graph vulnerability assessment to include this node's vulnerabilities
+          const graphAssessment = await assessGraphSecurity(graphData);
+          setSecurity({
+            ...nodeAssessment,
+            vulnerabilityAssessment: graphAssessment.vulnerabilityAssessment
+          });
+        } else {
+          setSecurity(nodeAssessment);
+        }
+      } catch (error) {
+        console.error('Failed to assess node security:', error);
+        setSecurity(graphData ? assessNodeSecurity(node, graphData) : null);
+      } finally {
+        setSecurityLoading(false);
+      }
+    };
+
+    if (isOpen && node && graphData) {
+      assessSecurity();
+    }
+  }, [isOpen, node, graphData]);
+
   if (!isOpen || !node) {
     return null;
   }
 
   const concept = getConceptByNodeType(node.type);
-  const security = graphData ? assessNodeSecurity(node, graphData) : null;
   const trustBadge = security ? getTrustLevelBadge(security.trustLevel) : null;
   const riskBadge = security ? getRiskLevelBadge(security.riskLevel) : null;
 
@@ -101,7 +141,15 @@ export default function DetailsDrawer({ node, isOpen, onClose, graphData }: Deta
           )}
 
           {/* Security Assessment */}
-          {security && (trustBadge || riskBadge) && (
+          {securityLoading && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="py-8">
+                <LoadingSpinner size="sm" message="Analyzing security and vulnerabilities..." />
+              </CardContent>
+            </Card>
+          )}
+
+          {security && !securityLoading && (trustBadge || riskBadge) && (
             <Card className="border-orange-200 bg-orange-50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg text-orange-900">
@@ -200,6 +248,14 @@ export default function DetailsDrawer({ node, isOpen, onClose, graphData }: Deta
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Vulnerability Details */}
+          {security && security.vulnerabilityAssessment && !securityLoading && (
+            <VulnerabilityDetails 
+              assessment={security.vulnerabilityAssessment}
+              className="mt-4"
+            />
           )}
 
           {/* Component Information */}
