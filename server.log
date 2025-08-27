@@ -1,0 +1,19 @@
+
+> attestgraph@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.2
+   - Local:        http://localhost:3000
+   - Network:      http://172.10.2.94:3000
+
+ ✓ Starting...
+ ✓ Ready in 1536ms
+ ○ Compiling / ...
+ ✓ Compiled / in 3.3s (649 modules)
+ GET / 200 in 3710ms
+ ✓ Compiled in 642ms (286 modules)
+ ✓ Compiled /api/graph in 324ms (657 modules)
+Fetching attestations for cgr.dev/chainguard/static (linux/amd64)
+ GET /api/graph?image=cgr.dev/chainguard/static&platform=linux/amd64 200 in 2320ms
+ ✓ Compiled in 90ms (273 modules)
+[?25h
